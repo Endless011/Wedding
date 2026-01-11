@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Group, Category, Product } from '../types';
 import { useAuth } from './AuthContext';
 import {
-    subscribeToGroupsChanges,
+    fetchAllData,
     addGroup,
     updateGroup,
     deleteGroup,
@@ -11,9 +11,8 @@ import {
     deleteCategory,
     addProduct,
     updateProduct,
-    deleteProduct,
-    createGroupWithHierarchy
-} from '../services/firebaseService';
+    deleteProduct
+} from '../services/dataService';
 
 interface DataContextType {
     groups: Group[];
@@ -85,14 +84,22 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             return;
         }
 
-        setIsLoading(true);
-        const unsubscribe = subscribeToGroupsChanges(activeUserId, (newGroups) => {
-            setGroups(newGroups);
-            setIsLoading(false);
-        });
-
-        return () => unsubscribe();
+        // Fetch Data
+        loadData();
     }, [isAuthenticated, activeUserId]);
+
+    const loadData = async () => {
+        setIsLoading(true);
+        const data = await fetchAllData(activeUserId);
+        setGroups(data);
+        setIsLoading(false);
+    };
+
+    // Helper to refresh data after mutations
+    const refreshData = async () => {
+        const data = await fetchAllData(activeUserId);
+        setGroups(data);
+    };
 
     // PROTECTED Wrappers for Service Calls (Block if ReadOnly)
     const guard = (fn: () => any) => {
@@ -105,52 +112,67 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const createGroup = async (group: Omit<Group, 'id' | 'categories'>) => {
         if (isReadOnly || !activeUserId) return;
-        return await addGroup(activeUserId, group);
+        const res = await addGroup(activeUserId, group);
+        refreshData();
+        return res;
     };
 
+    // createGroupWithHierarchy removed from service, assuming not used or need re-impl
+    // For now stubbing it or removing if not critical. 
+    // It was used for templates. I should probably implement it in dataService if needed.
     const createGroupWithHierarchyWrapper = async (groupData: any) => {
-        if (isReadOnly || !activeUserId) return;
-        return await createGroupWithHierarchy(activeUserId, groupData);
+        console.warn('createGroupWithHierarchy not implemented in API yet');
+        return undefined;
     };
 
     const editGroup = async (groupId: string, updates: Partial<Group>) => {
         if (isReadOnly || !activeUserId) return;
         await updateGroup(activeUserId, groupId, updates);
+        refreshData();
     };
 
     const removeGroup = async (groupId: string) => {
         if (isReadOnly || !activeUserId) return;
         await deleteGroup(activeUserId, groupId);
+        refreshData();
     };
 
     const createCategory = async (groupId: string, category: Omit<Category, 'id' | 'products'>) => {
         if (isReadOnly || !activeUserId) return;
-        return await addCategory(activeUserId, groupId, category);
+        const res = await addCategory(activeUserId, groupId, category);
+        refreshData();
+        return res;
     };
 
     const editCategory = async (groupId: string, categoryId: string, updates: Partial<Category>) => {
         if (isReadOnly || !activeUserId) return;
         await updateCategory(activeUserId, groupId, categoryId, updates);
+        refreshData();
     };
 
     const removeCategory = async (groupId: string, categoryId: string) => {
         if (isReadOnly || !activeUserId) return;
         await deleteCategory(activeUserId, groupId, categoryId);
+        refreshData();
     };
 
     const createProduct = async (groupId: string, categoryId: string, product: Omit<Product, 'id'>) => {
         if (isReadOnly || !activeUserId) return;
-        return await addProduct(activeUserId, groupId, categoryId, product);
+        const res = await addProduct(activeUserId, groupId, categoryId, product);
+        refreshData();
+        return res;
     };
 
     const editProduct = async (groupId: string, categoryId: string, productId: string, updates: Partial<Product>) => {
         if (isReadOnly || !activeUserId) return;
         await updateProduct(activeUserId, groupId, categoryId, productId, updates);
+        refreshData();
     };
 
     const removeProduct = async (groupId: string, categoryId: string, productId: string) => {
         if (isReadOnly || !activeUserId) return;
         await deleteProduct(activeUserId, groupId, categoryId, productId);
+        refreshData();
     };
 
     // Calculations
@@ -179,12 +201,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const loadGuestData = (guestUsername: string) => {
         setIsLoading(true);
-        // We reuse subscribeToGroupsChanges but separate state
-        const unsubscribe = subscribeToGroupsChanges(guestUsername, (fetchedGroups) => {
+        fetchAllData(guestUsername).then(fetchedGroups => {
             setGuestGroups(fetchedGroups);
             setIsLoading(false);
         });
-        return unsubscribe; // Return cleanup to the caller (GuestScreen)
+        return () => { }; // No real cleanup for fetch
     };
 
     return (

@@ -9,7 +9,7 @@ import {
     updateUserDetails,
     updateLocalUser
 } from '../services/authService';
-import { updateUserWeddingDate, getUserWeddingDate } from '../services/firebaseService';
+import { updateUserWeddingDate, getUserWeddingDate } from '../services/dataService';
 
 interface AuthContextType {
     user: User | null;
