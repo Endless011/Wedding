@@ -1,0 +1,272 @@
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { Group, Category, Product } from '../types';
+import { useAuth } from './AuthContext';
+import {
+    fetchAllData,
+    addGroup,
+    updateGroup,
+    deleteGroup,
+    addCategory,
+    updateCategory,
+    deleteCategory,
+    addProduct,
+    updateProduct,
+    deleteProduct
+} from '../services/dataService';
+
+interface DataContextType {
+    groups: Group[];
+    isLoading: boolean;
+
+    // View Others
+    // View Others (Legacy: targetUserId)
+    targetUserId: string | null;
+    setTargetUserId: (id: string | null) => void;
+    isReadOnly: boolean;
+
+    // New Guest Data
+    guestGroups: Group[];
+    loadGuestData: (username: string) => () => void; // Returns unsubscribe function
+
+    // Group Ops
+    createGroup: (group: Omit<Group, 'id' | 'categories'>) => Promise<string | undefined>;
+    createGroupWithHierarchy: (groupData: any) => Promise<string | undefined>;
+    editGroup: (groupId: string, updates: Partial<Group>) => void;
+    removeGroup: (groupId: string) => void;
+
+    // Category Ops
+    createCategory: (groupId: string, category: Omit<Category, 'id' | 'products'>) => Promise<string | undefined>;
+    editCategory: (groupId: string, categoryId: string, updates: Partial<Category>) => void;
+    removeCategory: (groupId: string, categoryId: string) => void;
+
+    // Product Ops
+    createProduct: (groupId: string, categoryId: string, product: Omit<Product, 'id'>) => Promise<string | undefined>;
+    editProduct: (groupId: string, categoryId: string, productId: string, updates: Partial<Product>) => void;
+    removeProduct: (groupId: string, categoryId: string, productId: string) => void;
+
+    // Stats
+    calculateOverallProgress: () => number;
+}
+
+const DataContext = createContext<DataContextType | undefined>(undefined);
+
+export const useData = () => {
+    const context = useContext(DataContext);
+    if (!context) {
+        throw new Error('useData must be used within a DataProvider');
+    }
+    return context;
+};
+
+export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const [groups, setGroups] = useState<Group[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [targetUserId, setTargetUserId] = useState<string | null>(null);
+
+    const { user, isAuthenticated } = useAuth();
+
+    // If target set, we use it; otherwise fallback to logged in user
+    const activeUserId = targetUserId ? targetUserId : (user?.username || '');
+    const isReadOnly = !!targetUserId;
+
+    useEffect(() => {
+        // Reset target if logged out or auth changes
+        if (!isAuthenticated) {
+            setTargetUserId(null);
+            setGroups([]);
+            setIsLoading(false);
+            return;
+        }
+
+        if (!activeUserId) {
+            setGroups([]);
+            setIsLoading(false);
+            return;
+        }
+
+        // Fetch Data
+        loadData();
+    }, [isAuthenticated, activeUserId]);
+
+    const loadData = async () => {
+        setIsLoading(true);
+        const data = await fetchAllData(activeUserId);
+        setGroups(data);
+        setIsLoading(false);
+    };
+
+    // Helper to refresh data after mutations
+    const refreshData = async () => {
+        const data = await fetchAllData(activeUserId);
+        setGroups(data);
+    };
+
+    // PROTECTED Wrappers for Service Calls (Block if ReadOnly)
+    const guard = (fn: () => any) => {
+        if (isReadOnly) {
+            console.warn('Action blocked: View Only Mode');
+            return;
+        }
+        return fn();
+    };
+
+    const createGroup = async (group: Omit<Group, 'id' | 'categories'>) => {
+        if (isReadOnly || !activeUserId) return;
+        const res = await addGroup(activeUserId, group);
+        refreshData();
+        return res;
+    };
+
+    // createGroupWithHierarchy removed from service, assuming not used or need re-impl
+    // For now stubbing it or removing if not critical. 
+    // It was used for templates. I should probably implement it in dataService if needed.
+    const createGroupWithHierarchyWrapper = async (groupData: Group) => {
+        if (isReadOnly || !activeUserId) return;
+
+        try {
+            // 1. Create Group
+            const groupId = await addGroup(activeUserId, {
+                name: groupData.name,
+                icon: groupData.icon,
+                color: groupData.color
+            });
+
+            if (!groupId) throw new Error("Group creation failed");
+
+            // 2. Create Categories & Products
+            for (const cat of groupData.categories) {
+                const catId = await addCategory(activeUserId, groupId, {
+                    name: cat.name,
+                    targetQuantity: cat.targetQuantity,
+                    description: cat.description || '',
+                    isCompleted: false
+                });
+
+                if (catId && cat.products && cat.products.length > 0) {
+                    for (const prod of cat.products) {
+                        await addProduct(activeUserId, groupId, catId, {
+                            name: prod.name,
+                            price: prod.price || 0,
+                            purchasedQuantity: prod.purchasedQuantity || 0,
+                            notes: prod.notes || '',
+                            isPurchased: prod.isPurchased || false,
+                            url: prod.url || '',
+                            brand: prod.brand || ''
+                        });
+                    }
+                }
+            }
+
+            // 3. Refresh Data
+            await refreshData();
+            return groupId;
+        } catch (error) {
+            console.error("Error creating hierarchy:", error);
+            throw error;
+        }
+    };
+
+    const editGroup = async (groupId: string, updates: Partial<Group>) => {
+        if (isReadOnly || !activeUserId) return;
+        await updateGroup(activeUserId, groupId, updates);
+        refreshData();
+    };
+
+    const removeGroup = async (groupId: string) => {
+        if (isReadOnly || !activeUserId) return;
+        await deleteGroup(activeUserId, groupId);
+        refreshData();
+    };
+
+    const createCategory = async (groupId: string, category: Omit<Category, 'id' | 'products'>) => {
+        if (isReadOnly || !activeUserId) return;
+        const res = await addCategory(activeUserId, groupId, category);
+        refreshData();
+        return res;
+    };
+
+    const editCategory = async (groupId: string, categoryId: string, updates: Partial<Category>) => {
+        if (isReadOnly || !activeUserId) return;
+        await updateCategory(activeUserId, groupId, categoryId, updates);
+        refreshData();
+    };
+
+    const removeCategory = async (groupId: string, categoryId: string) => {
+        if (isReadOnly || !activeUserId) return;
+        await deleteCategory(activeUserId, groupId, categoryId);
+        refreshData();
+    };
+
+    const createProduct = async (groupId: string, categoryId: string, product: Omit<Product, 'id'>) => {
+        if (isReadOnly || !activeUserId) return;
+        const res = await addProduct(activeUserId, groupId, categoryId, product);
+        refreshData();
+        return res;
+    };
+
+    const editProduct = async (groupId: string, categoryId: string, productId: string, updates: Partial<Product>) => {
+        if (isReadOnly || !activeUserId) return;
+        await updateProduct(activeUserId, groupId, categoryId, productId, updates);
+        refreshData();
+    };
+
+    const removeProduct = async (groupId: string, categoryId: string, productId: string) => {
+        if (isReadOnly || !activeUserId) return;
+        await deleteProduct(activeUserId, groupId, categoryId, productId);
+        refreshData();
+    };
+
+    // Calculations
+    const calculateOverallProgress = () => {
+        let totalTarget = 0;
+        let totalPurchased = 0;
+
+        groups.forEach(group => {
+            group.categories.forEach(cat => {
+                totalTarget += cat.targetQuantity || 0;
+                totalPurchased += cat.products.reduce((acc, p) => acc + (p.purchasedQuantity || 0), 0);
+            });
+        });
+
+        if (totalTarget === 0) return 0;
+        return Math.min(100, Math.round((totalPurchased / totalTarget) * 100));
+    };
+
+    // Guest Mode Logic
+    const [guestGroups, setGuestGroups] = useState<Group[]>([]);
+
+    // We do NOT use targetUserId for Main App anymore. 
+    // We might keep it if we want to support the old way, but let's separate it.
+    // Actually, let's KEEP targetUserId for now but ignore it in main views if we handle it via a separate Screen.
+    // Wait, the new requirement says "separate screen". So DataContext should just provide data.
+
+    const loadGuestData = (guestUsername: string) => {
+        setIsLoading(true);
+        fetchAllData(guestUsername).then(fetchedGroups => {
+            setGuestGroups(fetchedGroups);
+            setIsLoading(false);
+        });
+        return () => { }; // No real cleanup for fetch
+    };
+
+    return (
+        <DataContext.Provider value={{
+            groups,
+            isLoading,
+            targetUserId: null, // Deprecated/Disabled for main view
+            setTargetUserId: () => { }, // Disabled
+            isReadOnly: false, // Main view is never read-only now
+
+            // New Guest Props
+            guestGroups,
+            loadGuestData,
+
+            createGroup, createGroupWithHierarchy: createGroupWithHierarchyWrapper, editGroup, removeGroup,
+            createCategory, editCategory, removeCategory,
+            createProduct, editProduct, removeProduct,
+            calculateOverallProgress
+        }}>
+            {children}
+        </DataContext.Provider>
+    );
+};

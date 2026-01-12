@@ -135,6 +135,27 @@ exports.getAllUsers = async (req, res) => {
     }
 };
 
+// Get User by Friend Code
+exports.getUserByFriendCode = async (req, res) => {
+    try {
+        const { friendCode } = req.params;
+        // Case insensitive search
+        const result = await pool.query('SELECT * FROM users WHERE UPPER(friend_code) = UPPER($1)', [friendCode]);
+
+        if (result.rows.length > 0) {
+            const user = result.rows[0];
+            user.weddingDate = user.wedding_date;
+            user.friendCode = user.friend_code;
+            res.json(user);
+        } else {
+            res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error fetching user' });
+    }
+};
+
 // Delete User
 exports.deleteUser = async (req, res) => {
     try {

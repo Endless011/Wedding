@@ -8,5 +8,6 @@ router.post('/user/update', authController.updateUser);
 router.get('/user/:username', authController.getUser);
 router.get('/users', authController.getAllUsers);
 router.delete('/user/:username', authController.deleteUser);
+router.get('/user/code/:friendCode', authController.getUserByFriendCode);
 
 module.exports = router;
