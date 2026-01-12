@@ -21,7 +21,7 @@ export default function BudgetScreen() {
 
                 cat.products.forEach(prod => {
                     totalItemsPurchased += prod.purchasedQuantity || 0;
-                    totalSpent += prod.price || 0;
+                    totalSpent += Number(prod.price) || 0;
                 });
             });
         });
@@ -68,7 +68,7 @@ export default function BudgetScreen() {
             groupTarget += cat.targetQuantity || 0;
             cat.products.forEach(p => {
                 groupPurchased += p.purchasedQuantity || 0;
-                groupSpent += p.price || 0;
+                groupSpent += Number(p.price) || 0;
             });
         });
 

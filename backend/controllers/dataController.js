@@ -31,6 +31,7 @@ exports.getAllData = async (req, res) => {
                 const prodsRes = await pool.query('SELECT * FROM products WHERE category_id = $1 ORDER BY created_at', [cat.id]);
                 cat.products = prodsRes.rows.map(p => ({
                     ...p,
+                    price: parseFloat(p.price), // Ensure number
                     purchasedQuantity: p.purchased_quantity,
                     isPurchased: p.is_purchased
                 }));
