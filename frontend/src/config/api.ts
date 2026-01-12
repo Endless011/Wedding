@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 
 // --- AYARLAR ---
 // Render'a yükledikten sonra size verilen URL'i buraya yapıştırın:
-const PRODUCTION_API_URL = ''; // Örn: 'https://wedding-planner-backup.onrender.com/api'
+const PRODUCTION_API_URL = 'https://wedding-iawi.onrender.com/api';
 
 // Yerel IP Adresiniz (ipconfig ile aldığınız):
 const LOCAL_IP = '192.168.1.37';

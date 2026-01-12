@@ -65,6 +65,60 @@ exports.addGroup = async (req, res) => {
     }
 };
 
+exports.addGroupWithHierarchy = async (req, res) => {
+    const { userId, group } = req.body; // group includes categories -> products
+    const client = await pool.connect();
+
+    try {
+        await client.query('BEGIN');
+
+        // 1. Get User ID
+        const userRes = await client.query('SELECT id FROM users WHERE username = $1', [userId]);
+        if (userRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'User not found' });
+        }
+        const dbUserId = userRes.rows[0].id;
+
+        // 2. Create Group
+        const groupId = generateId();
+        await client.query(
+            'INSERT INTO groups (id, user_id, name, icon, color) VALUES ($1, $2, $3, $4, $5)',
+            [groupId, dbUserId, group.name, group.icon, group.color]
+        );
+
+        // 3. Categories & Products
+        if (group.categories && group.categories.length > 0) {
+            for (const cat of group.categories) {
+                const catId = generateId();
+                await client.query(
+                    'INSERT INTO categories (id, group_id, name, description, target_quantity, is_completed) VALUES ($1, $2, $3, $4, $5, $6)',
+                    [catId, groupId, cat.name, cat.description || '', cat.targetQuantity || 1, false]
+                );
+
+                if (cat.products && cat.products.length > 0) {
+                    for (const prod of cat.products) {
+                        const prodId = generateId();
+                        await client.query(
+                            'INSERT INTO products (id, category_id, name, brand, price, purchased_quantity, notes, is_purchased) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+                            [prodId, catId, prod.name, prod.brand || '', prod.price || 0, 0, prod.notes || '', false]
+                        );
+                    }
+                }
+            }
+        }
+
+        await client.query('COMMIT');
+        res.json({ id: groupId, success: true });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Add hierarchy error:', error);
+        res.status(500).json({ error: 'Failed to add group package' });
+    } finally {
+        client.release();
+    }
+};
+
 exports.updateGroup = async (req, res) => {
     const { updates } = req.body;
     try {

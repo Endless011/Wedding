@@ -27,7 +27,21 @@ export const addGroup = async (userId: string, group: Omit<Group, 'id' | 'catego
         const data = await response.json();
         return data.id;
     } catch (error) {
-        console.error('Add group error:', error);
+        throw error;
+    }
+};
+
+export const createGroupWithHierarchy = async (userId: string, group: any) => {
+    try {
+        const response = await fetch(`${API_URL}/groups/hierarchy`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ userId, group }),
+        });
+        const data = await response.json();
+        return data.id;
+    } catch (error) {
+        console.error('Add group hierarchy error:', error);
         throw error;
     }
 };

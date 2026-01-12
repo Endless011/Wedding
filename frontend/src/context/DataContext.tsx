@@ -11,7 +11,8 @@ import {
     deleteCategory,
     addProduct,
     updateProduct,
-    deleteProduct
+    deleteProduct,
+    createGroupWithHierarchy
 } from '../services/dataService';
 
 interface DataContextType {
@@ -121,8 +122,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // For now stubbing it or removing if not critical. 
     // It was used for templates. I should probably implement it in dataService if needed.
     const createGroupWithHierarchyWrapper = async (groupData: any) => {
-        console.warn('createGroupWithHierarchy not implemented in API yet');
-        return undefined;
+        if (isReadOnly || !activeUserId) return;
+        const res = await createGroupWithHierarchy(activeUserId, groupData);
+        refreshData();
+        return res;
     };
 
     const editGroup = async (groupId: string, updates: Partial<Group>) => {

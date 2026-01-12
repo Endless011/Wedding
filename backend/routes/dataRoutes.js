@@ -7,6 +7,7 @@ router.get('/data/:userId', dataController.getAllData);
 
 // Groups
 router.post('/groups', dataController.addGroup);
+router.post('/groups/hierarchy', dataController.addGroupWithHierarchy);
 router.put('/groups/:id', dataController.updateGroup);
 router.delete('/groups/:id', dataController.deleteGroup);
 

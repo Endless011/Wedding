@@ -72,13 +72,22 @@ exports.updateUser = async (req, res) => {
             friendCode: 'friend_code',
             title: 'title',
             password: 'password',
-            role: 'role'
+            role: 'role',
+            username: 'username' // Allow username update
         };
 
         const setClause = keys.map((key, index) => {
             const dbCol = columnMap[key] || key;
             return `${dbCol} = $${index + 1}`;
         }).join(', ');
+
+        // Check if username is being changed, check uniqueness
+        if (updates.username) {
+            const userCheck = await pool.query('SELECT * FROM users WHERE username = $1', [updates.username]);
+            if (userCheck.rows.length > 0 && userCheck.rows[0].username !== username) {
+                return res.status(400).json({ success: false, error: 'Bu kullanıcı adı zaten kullanılıyor' });
+            }
+        }
 
         await pool.query(`UPDATE users SET ${setClause} WHERE username = $${keys.length + 1}`, [...values, username]);
 
@@ -103,5 +112,31 @@ exports.getUser = async (req, res) => {
         }
     } catch (error) {
         res.status(500).json({ error: 'Error fetching user' });
+    }
+};
+
+// Get All Users (Admin)
+exports.getAllUsers = async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM users ORDER BY id ASC');
+        const users = result.rows.map(user => ({
+            ...user,
+            weddingDate: user.wedding_date,
+            friendCode: user.friend_code
+        }));
+        res.json(users);
+    } catch (error) {
+        res.status(500).json({ error: 'Error fetching users' });
+    }
+};
+
+// Delete User
+exports.deleteUser = async (req, res) => {
+    try {
+        await pool.query('DELETE FROM users WHERE username = $1', [req.params.username]);
+        res.json({ success: true });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, error: 'Silme hatası' });
     }
 };

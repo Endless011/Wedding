@@ -82,8 +82,14 @@ export const getCurrentUser = async (): Promise<User | null> => {
 
 // Tüm kullanıcıları getir (admin için)
 export const getAllUsers = async (): Promise<User[]> => {
-    // TODO: Implement /api/users endpoint
-    return [];
+    try {
+        const response = await fetch(`${API_URL}/users`, { headers });
+        if (!response.ok) return [];
+        return await response.json();
+    } catch (error) {
+        console.error('Get all users error:', error);
+        return [];
+    }
 };
 
 // Genel kullanıcı güncelleme
@@ -133,7 +139,15 @@ export const changeUsername = async (currentDocId: string, newUsername: string):
 
 // Kullanıcı sil
 export const deleteUser = async (username: string): Promise<void> => {
-    console.warn('deleteUser not implemented on backend');
+    try {
+        await fetch(`${API_URL}/user/${username}`, {
+            method: 'DELETE',
+            headers,
+        });
+    } catch (error) {
+        console.error('Delete user error:', error);
+        throw error;
+    }
 };
 
 // Giriş yap

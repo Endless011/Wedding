@@ -84,7 +84,7 @@ const LoginScreen: React.FC<Props> = ({ onNavigateToRegister }) => {
                 >
                     {/* Logo/Title Area */}
                     <View style={styles.logoContainer}>
-                        <Ionicons name="diamond-outline" size={64} color="#FFFFFF" style={styles.icon} />
+                        <Ionicons name="bag-handle-outline" size={64} color="#FFFFFF" style={styles.icon} />
                         <Text style={styles.title}>Çeyiz Takip</Text>
                         <Text style={styles.subtitle}>Düğün Hazırlıklarınızı Kolayca Yönetin</Text>
                     </View>
