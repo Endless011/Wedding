@@ -29,6 +29,7 @@ exports.register = async (req, res) => {
         );
 
         const user = newUser.rows[0];
+        user.friendCode = user.friend_code; // Map for frontend
         res.json({ success: true, user });
     } catch (error) {
         console.error(error);
@@ -50,6 +51,10 @@ exports.login = async (req, res) => {
         if (user.password !== password) {
             return res.status(401).json({ success: false, error: 'Şifre hatalı' });
         }
+
+        // Map DB columns to Frontend props
+        user.friendCode = user.friend_code;
+        user.weddingDate = user.wedding_date;
 
         res.json({ success: true, user });
     } catch (error) {
